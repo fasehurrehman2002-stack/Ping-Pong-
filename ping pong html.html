@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ping Pong — vs AI / 2 Player</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0f0f1a;
+      color: #e8e8e8;
+      font-family: system-ui, -apple-system, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem 1rem;
+      gap: 14px;
+    }
+
+    h1 {
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    #mode-select { display: flex; gap: 10px; }
+
+    .mode-btn {
+      padding: 9px 28px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1.5px solid #2a2a3a;
+      background: #12121f;
+      color: #aaa;
+      transition: all 0.15s;
+    }
+    .mode-btn.active { border-color: #378ADD; background: rgba(55,138,221,0.1); color: #378ADD; }
+    .mode-btn:hover { background: #1a1a2e; }
+
+    #scoreboard { display: flex; align-items: center; gap: 40px; }
+    .player { text-align: center; }
+    .player .name { font-size: 13px; color: #666; margin-bottom: 4px; min-height: 22px; }
+    .player .score { font-size: 48px; font-weight: 500; min-width: 56px; }
+    #p1sc { color: #378ADD; }
+    #p2sc { color: #D85A30; }
+    .divider { font-size: 24px; color: #2a2a3a; }
+
+    .ai-badge {
+      display: inline-block;
+      background: rgba(216,90,48,0.12);
+      color: #D85A30;
+      font-size: 10px;
+      font-weight: 500;
+      padding: 1px 7px;
+      border-radius: 20px;
+      border: 1px solid rgba(216,90,48,0.3);
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+
+    canvas { border: 1px solid #1e1e30; border-radius: 8px; display: block; background: #0a0a12; }
+
+    #countdown-bar-wrap {
+      width: 620px; max-width: 100%; height: 4px;
+      background: #1a1a2e; border-radius: 2px; overflow: hidden; display: none;
+    }
+    #countdown-bar { height: 4px; background: #378ADD; width: 100%; border-radius: 2px; transition: none; }
+
+    #msg { font-size: 13px; color: #666; text-align: center; min-height: 20px; }
+
+    #btn-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+
+    button {
+      background: transparent; color: #e8e8e8; border: 1px solid #2a2a3a;
+      border-radius: 8px; padding: 8px 18px; font-size: 13px; cursor: pointer; transition: background 0.15s;
+    }
+    button:hover { background: #1a1a2e; }
+    button:active { transform: scale(0.97); }
+
+    #difficulty-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #888; }
+    #difficulty-row select {
+      font-size: 12px; padding: 5px 10px; border-radius: 8px;
+      border: 1px solid #2a2a3a; background: #12121f; color: #e8e8e8; cursor: pointer;
+    }
+
+    #auto-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #aaa; cursor: pointer; }
+    #auto-row input { width: 15px; height: 15px; cursor: pointer; accent-color: #378ADD; }
+
+    #vol-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #888; }
+    #vol-row input { width: 80px; accent-color: #378ADD; }
+
+    #controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 540px; }
+    .ctrl-card {
+      background: #12121f; border: 1px solid #1e1e30; border-radius: 10px;
+      padding: 12px 16px; font-size: 12px; color: #666; line-height: 1.7;
+    }
+    .ctrl-card strong { display: block; font-size: 13px; font-weight: 500; color: #ccc; margin-bottom: 5px; }
+    kbd {
+      display: inline-block; background: #1a1a2e; border: 1px solid #2a2a40;
+      border-radius: 4px; padding: 1px 7px; font-size: 11px; font-family: monospace; color: #ccc;
+    }
+
+    footer { font-size: 11px; color: #2a2a3a; margin-top: 4px; }
+
+    @media (max-width: 660px) {
+      canvas { width: 100%; height: auto; }
+      #countdown-bar-wrap { width: 100%; }
+      #controls { grid-template-columns: 1fr; }
+      #scoreboard { gap: 24px; }
+      .player .score { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Ping Pong</h1>
+
+  <div id="mode-select">
+    <button class="mode-btn active" id="btn-ai" onclick="setMode('ai')">vs AI</button>
+    <button class="mode-btn" id="btn-multi" onclick="setMode('multi')">2 Players</button>
+  </div>
+
+  <div id="scoreboard">
+    <div class="player">
+      <div class="name" id="p1name">You</div>
+      <div class="score" id="p1sc">0</div>
+    </div>
+    <div class="divider">—</div>
+    <div class="player">
+      <div class="name" id="p2name">AI <span class="ai-badge">Medium</span></div>
+      <div class="score" id="p2sc">0</div>
+    </div>
+  </div>
+
+  <canvas id="c" width="620" height="380"></canvas>
+  <div id="countdown-bar-wrap"><div id="countdown-bar"></div></div>
+  <div id="msg">Choose a mode and press Start</div>
+
+  <div id="btn-row">
+    <button onclick="startGame()">Start / restart</button>
+    <button onclick="resetScore()">Reset score</button>
+    <div id="difficulty-row">
+      AI difficulty
+      <select id="difficulty" onchange="updateLabels()">
+        <option value="easy">Easy</option>
+        <option value="medium" selected>Medium</option>
+        <option value="hard">Hard</option>
+        <option value="pro">Pro</option>
+      </select>
+    </div>
+    <label id="auto-row">
+      <input type="checkbox" id="auto-restart" checked>
+      Auto-restart
+    </label>
+    <div id="vol-row">
+      Vol <input type="range" id="vol" min="0" max="1" step="0.05" value="0.5">
+    </div>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-card" id="ctrl1">
+      <strong>You (left paddle)</strong>
+      <kbd>W</kbd> move up &nbsp; <kbd>S</kbd> move down
+    </div>
+    <div class="ctrl-card" id="ctrl2">
+      <strong>AI (right paddle)</strong>
+      Automatic — change difficulty above
+    </div>
+  </div>
+
+  <footer>First to 7 wins &nbsp;·&nbsp; Press Space to start / skip countdown</footer>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const PW = 12, PH = 80, BALL = 10;
+    const RESTART_DELAY = 3000;
+    const WIN = 7;
+
+    let mode = 'ai';
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('btn-ai').classList.toggle('active', m === 'ai');
+      document.getElementById('btn-multi').classList.toggle('active', m === 'multi');
+      document.getElementById('difficulty-row').style.display = m === 'ai' ? 'flex' : 'none';
+      updateLabels();
+      if (state === 'playing') startGame();
+    }
+
+    function updateLabels() {
+      const diff = document.getElementById('difficulty').value;
+      const label = { easy: 'Easy', medium: 'Medium', hard: 'Hard', pro: 'Pro' }[diff];
+      if (mode === 'ai') {
+        document.getElementById('p1name').textContent = 'You';
+        document.getElementById('p2name').innerHTML = `AI <span class="ai-badge">${label}</span>`;
+        document.getElementById('ctrl1').innerHTML = '<strong>You (left paddle)</strong><kbd>W</kbd> move up &nbsp; <kbd>S</kbd> move down';
+        document.getElementById('ctrl2').innerHTML = '<strong>AI (right paddle)</strong>Automatic — change difficulty above';
+      } else {
+        document.getElementById('p1name').textContent = 'Player 1';
+        document.getElementById('p2name').textContent = 'Player 2';
+        document.getElementById('ctrl1').innerHTML = '<strong>Player 1 (left)</strong><kbd>W</kbd> move up &nbsp; <kbd>S</kbd> move down';
+        document.getElementById('ctrl2').innerHTML = '<strong>Player 2 (right)</strong><kbd>↑</kbd> move up &nbsp; <kbd>↓</kbd> move down';
+      }
+    }
+
+    let audioCtx = null;
+    function getAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+    function playTone(freq, type, duration, vol) {
+      try {
+        const ac = getAudio(), o = ac.createOscillator(), g = ac.createGain();
+        const v = parseFloat(document.getElementById('vol').value);
+        o.connect(g); g.connect(ac.destination);
+        o.type = type;
+        o.frequency.setValueAtTime(freq, ac.currentTime);
+        g.gain.setValueAtTime(v * vol, ac.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+        o.start(ac.currentTime); o.stop(ac.currentTime + duration);
+      } catch(e) {}
+    }
+    function soundPaddle() { playTone(480, 'square', 0.08, 0.6); }
+    function soundWall()   { playTone(280, 'sine', 0.07, 0.4); }
+    function soundScore()  {
+      playTone(220, 'sawtooth', 0.12, 0.5);
+      setTimeout(() => playTone(165, 'sawtooth', 0.2, 0.5), 120);
+    }
+    function soundWin() {
+      [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 'square', 0.18, 0.5), i * 120));
+    }
+
+    let state = 'idle', score = [0, 0], raf, ball, p1, p2, keys = {}, restartTimer = null;
+    let aiTarget = H / 2, aiErr = 0;
+
+    function getDiffConfig() {
+      return {
+        easy:   { speed: 2.8, react: 0.04, err: 55 },
+        medium: { speed: 4.2, react: 0.07, err: 28 },
+        hard:   { speed: 6.0, react: 0.12, err: 12 },
+        pro:    { speed: 8.5, react: 0.22, err: 3  }
+      }[document.getElementById('difficulty').value];
+    }
+
+    function init() {
+      ball = { x: W / 2, y: H / 2, vx: (Math.random() > 0.5 ? 1 : -1) * 5, vy: Math.random() * 4 - 2 };
+      p1 = { x: 16, y: H / 2 - PH / 2 };
+      p2 = { x: W - 16 - PW, y: H / 2 - PH / 2 };
+      keys = {};
+      aiTarget = H / 2;
+      aiErr = 0;
+    }
+
+    function setMsg(t) { document.getElementById('msg').textContent = t; }
+
+    function startGame() {
+      clearRestartTimer();
+      if (raf) cancelAnimationFrame(raf);
+      init(); state = 'playing'; setMsg(''); loop();
+    }
+
+    function resetScore() {
+      score = [0, 0];
+      document.getElementById('p1sc').textContent = '0';
+      document.getElementById('p2sc').textContent = '0';
+      if (state !== 'idle') startGame();
+    }
+
+    function clearRestartTimer() {
+      if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
+      document.getElementById('countdown-bar-wrap').style.display = 'none';
+      document.getElementById('countdown-bar').style.width = '100%';
+      document.getElementById('countdown-bar').style.transition = 'none';
+    }
+
+    function scheduleAutoRestart(delay, fn) {
+      if (!document.getElementById('auto-restart').checked) return;
+      const wrap = document.getElementById('countdown-bar-wrap');
+      const bar = document.getElementById('countdown-bar');
+      wrap.style.display = 'block';
+      bar.style.transition = 'none'; bar.style.width = '100%';
+      setTimeout(() => { bar.style.transition = `width ${delay}ms linear`; bar.style.width = '0%'; }, 30);
+      restartTimer = setTimeout(() => {
+        wrap.style.display = 'none'; bar.style.width = '100%'; bar.style.transition = 'none';
+        fn();
+      }, delay);
+    }
+
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (state !== 'playing') { clearRestartTimer(); startGame(); }
+      }
+      if (['ArrowUp', 'ArrowDown', ' '].includes(e.key)) e.preventDefault();
+    });
+    document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    function moveAI() {
+      const cfg = getDiffConfig();
+      if (ball.vx > 0) {
+        if (Math.random() < cfg.react) {
+          aiErr = (Math.random() - 0.5) * cfg.err;
+          aiTarget = ball.y + aiErr;
+        }
+        const center = p2.y + PH / 2;
+        const diff = aiTarget - center;
+        p2.y += Math.sign(diff) * Math.min(Math.abs(diff), cfg.speed);
+      } else {
+        const center = p2.y + PH / 2;
+        const diff = H / 2 - center;
+        p2.y += Math.sign(diff) * Math.min(Math.abs(diff), cfg.speed * 0.5);
+      }
+      p2.y = clamp(p2.y, 0, H - PH);
+    }
+
+    function update() {
+      const spd = 6;
+      if (keys['w'] || keys['W']) p1.y -= spd;
+      if (keys['s'] || keys['S']) p1.y += spd;
+      p1.y = clamp(p1.y, 0, H - PH);
+
+      if (mode === 'multi') {
+        if (keys['ArrowUp'])   p2.y -= spd;
+        if (keys['ArrowDown']) p2.y += spd;
+        p2.y = clamp(p2.y, 0, H - PH);
+      } else {
+        moveAI();
+      }
+
+      ball.x += ball.vx; ball.y += ball.vy;
+
+      if (ball.y - BALL < 0) { ball.y = BALL;     ball.vy *= -1; soundWall(); }
+      if (ball.y + BALL > H) { ball.y = H - BALL; ball.vy *= -1; soundWall(); }
+
+      function hit(px, py) {
+        return ball.x - BALL < px + PW && ball.x + BALL > px &&
+               ball.y + BALL > py && ball.y - BALL < py + PH;
+      }
+      if (hit(p1.x, p1.y)) {
+        ball.x = p1.x + PW + BALL;
+        ball.vy = ((ball.y - (p1.y + PH / 2)) / (PH / 2)) * 6;
+        ball.vx = Math.min(Math.abs(ball.vx) * 1.05, 14);
+        soundPaddle();
+      }
+      if (hit(p2.x, p2.y)) {
+        ball.x = p2.x - BALL;
+        ball.vy = ((ball.y - (p2.y + PH / 2)) / (PH / 2)) * 6;
+        ball.vx = -Math.min(Math.abs(ball.vx) * 1.05, 14);
+        soundPaddle();
+      }
+
+      if (ball.x < 0) {
+        score[1]++; document.getElementById('p2sc').textContent = score[1];
+        soundScore();
+        if (score[1] >= WIN) { endGame(); return; }
+        point(mode === 'ai' ? 'AI' : 'Player 2'); return;
+      }
+      if (ball.x > W) {
+        score[0]++; document.getElementById('p1sc').textContent = score[0];
+        soundScore();
+        if (score[0] >= WIN) { endGame(); return; }
+        point(mode === 'ai' ? 'You' : 'Player 1'); return;
+      }
+    }
+
+    function point(scorer) {
+      state = 'point'; cancelAnimationFrame(raf); draw();
+      const autoOn = document.getElementById('auto-restart').checked;
+      setMsg(`${scorer} scored! ${autoOn ? 'Restarting in 3s… or press Space' : 'Press Space for next round.'}`);
+      scheduleAutoRestart(RESTART_DELAY, startGame);
+    }
+
+    function endGame() {
+      let winner;
+      if (mode === 'ai') winner = score[0] >= WIN ? 'You win!' : 'AI wins!';
+      else winner = score[0] >= WIN ? 'Player 1 wins!' : 'Player 2 wins!';
+      state = 'idle'; draw(); soundWin();
+      const autoOn = document.getElementById('auto-restart').checked;
+      setMsg(`${winner} ${autoOn ? 'New game in 3s… or press Space' : 'Press Space to play again.'}`);
+      scheduleAutoRestart(RESTART_DELAY, () => { resetScore(); startGame(); });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = '#0a0a12'; ctx.fillRect(0, 0, W, H);
+
+      ctx.setLineDash([8, 8]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#378ADD';
+      ctx.beginPath(); ctx.roundRect(p1.x, p1.y, PW, PH, 4); ctx.fill();
+
+      ctx.fillStyle = '#D85A30';
+      ctx.beginPath(); ctx.roundRect(p2.x, p2.y, PW, PH, 4); ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, BALL, 0, Math.PI * 2); ctx.fill();
+    }
+
+    function loop() {
+      update(); draw();
+      if (state === 'playing') raf = requestAnimationFrame(loop);
+    }
+
+    setMode('ai');
+    init(); draw();
+  </script>
+</body>
+</html>
